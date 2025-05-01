@@ -1,33 +1,56 @@
 import { useEffect, useState } from 'react';
 
-const REQUIRED_USER = "halfin";
+const REQUIRED_FID = 2261; // @halfin
 
 export default function App() {
   const [isConnected, setIsConnected] = useState(false);
+  const [fid, setFid] = useState(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  const mockCheckFollowing = async () => {
-    setChecking(true);
-    return new Promise((resolve) => setTimeout(() => {
-      const followed = Math.random() > 0.5;
-      resolve(followed);
-    }, 1000));
+  const connectFarcaster = async () => {
+    try {
+      const res = await fetch("https://api.neynar.com/v2/farcaster/user", {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          api_key: "NEYNAR_PUBLIC_API_KEY"
+        },
+        credentials: "include"
+      });
+
+      const data = await res.json();
+      if (data && data.result && data.result.user) {
+        setFid(data.result.user.fid);
+        setIsConnected(true);
+      } else {
+        alert("Failed to connect Farcaster account");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error connecting to Farcaster");
+    }
   };
 
-  const handleConnect = () => {
-    setIsConnected(true);
-    alert("Wallet & Farcaster linked!");
-  };
-
-  const handleCheck = async () => {
+  const checkFollowing = async () => {
+    if (!fid) return;
     setChecking(true);
-    const result = await mockCheckFollowing();
-    setIsFollowing(result);
-    if (!result) {
-      alert("You must follow @halfin to unlock content.");
-    } else {
-      alert("Access granted!");
+    try {
+      const res = await fetch(`https://api.neynar.com/v2/farcaster/user/follows?fid=${fid}&target_fid=${REQUIRED_FID}`, {
+        headers: {
+          accept: "application/json",
+          api_key: "NEYNAR_PUBLIC_API_KEY"
+        }
+      });
+      const data = await res.json();
+      if (data.is_following) {
+        setIsFollowing(true);
+      } else {
+        alert("You must follow @halfin to unlock content.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to check follow status");
     }
     setChecking(false);
   };
@@ -39,10 +62,10 @@ export default function App() {
         Follow <a href="https://warpcast.com/halfin" target="_blank">@halfin</a> on Warpcast to unlock content.
       </p>
       {!isConnected ? (
-        <button onClick={handleConnect}>Connect Wallet + Farcaster</button>
+        <button onClick={connectFarcaster}>Connect Farcaster</button>
       ) : (
         <>
-          <button onClick={handleCheck} disabled={checking}>
+          <button onClick={checkFollowing} disabled={checking}>
             {checking ? "Checking..." : "Verify Following"}
           </button>
           {isFollowing && (
